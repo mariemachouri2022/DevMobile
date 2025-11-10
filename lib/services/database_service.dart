@@ -20,7 +20,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3, // Incremented to force re-migration
+      version: 4, // Incremented to force re-migration
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -33,11 +33,15 @@ class DatabaseService {
       // Note: SQLite doesn't allow DEFAULT CURRENT_TIMESTAMP in ALTER TABLE
       // So we use a fixed default value instead
       await db.execute(
-          'ALTER TABLE users ADD COLUMN lastModified TEXT DEFAULT NULL');
+        'ALTER TABLE users ADD COLUMN lastModified TEXT DEFAULT NULL',
+      );
       await db.execute(
-          'ALTER TABLE users ADD COLUMN createdAt TEXT DEFAULT NULL');
-      await db.execute('ALTER TABLE users ADD COLUMN isActive INTEGER DEFAULT 1');
-      
+        'ALTER TABLE users ADD COLUMN createdAt TEXT DEFAULT NULL',
+      );
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN isActive INTEGER DEFAULT 1',
+      );
+
       // Update existing rows with current timestamp
       final now = DateTime.now().toIso8601String();
       await db.execute('''
@@ -46,13 +50,13 @@ class DatabaseService {
         WHERE lastModified IS NULL
       ''');
     }
-    
+
     if (oldVersion < 3) {
       // Create history tables if they don't exist
       const textType = 'TEXT NOT NULL';
       const textTypeNull = 'TEXT';
       const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
-      
+
       // Coach-Client association history table
       await db.execute('''
         CREATE TABLE IF NOT EXISTS coach_client_history (
@@ -82,6 +86,13 @@ class DatabaseService {
         )
       ''');
     }
+
+    if (oldVersion < 4) {
+      // Add profileImagePath column
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN profileImagePath TEXT DEFAULT NULL',
+      );
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -102,6 +113,7 @@ class DatabaseService {
         password $textType,
         role $textType,
         coachId INTEGER,
+        profileImagePath $textTypeNull,
         lastModified $textTypeNull DEFAULT CURRENT_TIMESTAMP,
         createdAt $textTypeNull DEFAULT CURRENT_TIMESTAMP,
         isActive INTEGER DEFAULT 1,
@@ -163,11 +175,7 @@ class DatabaseService {
 
   Future<UserModel?> getUserById(int id) async {
     final db = await database;
-    final maps = await db.query(
-      'users',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query('users', where: 'id = ?', whereArgs: [id]);
 
     if (maps.isNotEmpty) {
       return UserModel.fromMap(maps.first);
@@ -219,31 +227,61 @@ class DatabaseService {
 
   Future<int> updateUser(UserModel user) async {
     final db = await database;
-    
+
     // Get old user data for history tracking
     final oldUser = await getUserById(user.id!);
     if (oldUser != null) {
       // Track changes
       if (oldUser.name != user.name) {
-        await recordProfileChange(user.id!, 'name', oldUser.name, user.name, null);
+        await recordProfileChange(
+          user.id!,
+          'name',
+          oldUser.name,
+          user.name,
+          null,
+        );
       }
       if (oldUser.firstName != user.firstName) {
-        await recordProfileChange(user.id!, 'firstName', oldUser.firstName, user.firstName, null);
+        await recordProfileChange(
+          user.id!,
+          'firstName',
+          oldUser.firstName,
+          user.firstName,
+          null,
+        );
       }
       if (oldUser.age != user.age) {
-        await recordProfileChange(user.id!, 'age', oldUser.age.toString(), user.age.toString(), null);
+        await recordProfileChange(
+          user.id!,
+          'age',
+          oldUser.age.toString(),
+          user.age.toString(),
+          null,
+        );
       }
       if (oldUser.phone != user.phone) {
-        await recordProfileChange(user.id!, 'phone', oldUser.phone, user.phone, null);
+        await recordProfileChange(
+          user.id!,
+          'phone',
+          oldUser.phone,
+          user.phone,
+          null,
+        );
       }
       if (oldUser.role != user.role) {
-        await recordProfileChange(user.id!, 'role', oldUser.role.toString(), user.role.toString(), null);
+        await recordProfileChange(
+          user.id!,
+          'role',
+          oldUser.role.toString(),
+          user.role.toString(),
+          null,
+        );
       }
     }
-    
+
     // Update with lastModified timestamp
     final updatedUser = user.copyWith(lastModified: DateTime.now());
-    
+
     return await db.update(
       'users',
       updatedUser.toMap(),
@@ -266,11 +304,7 @@ class DatabaseService {
   // Hard delete (for admin only)
   Future<int> permanentlyDeleteUser(int id) async {
     final db = await database;
-    return await db.delete(
-      'users',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('users', where: 'id = ?', whereArgs: [id]);
   }
 
   // Restore deleted user
@@ -287,7 +321,7 @@ class DatabaseService {
   // Promote user role (client to coach)
   Future<int> promoteUserRole(int userId, UserRole newRole) async {
     final db = await database;
-    
+
     final user = await getUserById(userId);
     if (user != null) {
       await recordProfileChange(
@@ -298,7 +332,7 @@ class DatabaseService {
         null,
       );
     }
-    
+
     return await db.update(
       'users',
       {
@@ -312,10 +346,10 @@ class DatabaseService {
 
   Future<int> assignCoachToClient(int clientId, int coachId) async {
     final db = await database;
-    
+
     // Record in history
     await recordCoachAssignment(clientId, coachId);
-    
+
     // Update user
     return await db.update(
       'users',
@@ -389,16 +423,22 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getRecentlyModifiedUsers(int limit) async {
     final db = await database;
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT *
       FROM users
       WHERE isActive = 1
       ORDER BY lastModified DESC
       LIMIT ?
-    ''', [limit]);
+    ''',
+      [limit],
+    );
   }
 
-  Future<List<Map<String, dynamic>>> getUsersByAgeRange(int minAge, int maxAge) async {
+  Future<List<Map<String, dynamic>>> getUsersByAgeRange(
+    int minAge,
+    int maxAge,
+  ) async {
     final db = await database;
     return await db.query(
       'users',
@@ -429,7 +469,8 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getProfileHistory(int userId) async {
     final db = await database;
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT 
         ph.*,
         u.firstName || ' ' || u.name as modifiedByName
@@ -437,13 +478,15 @@ class DatabaseService {
       LEFT JOIN users u ON ph.modifiedBy = u.id
       WHERE ph.userId = ?
       ORDER BY ph.modifiedAt DESC
-    ''', [userId]);
+    ''',
+      [userId],
+    );
   }
 
   // Coach-client history tracking
   Future<void> recordCoachAssignment(int clientId, int coachId) async {
     final db = await database;
-    
+
     // Deactivate previous assignments
     await db.update(
       'coach_client_history',
@@ -451,7 +494,7 @@ class DatabaseService {
       where: 'clientId = ? AND isActive = 1',
       whereArgs: [clientId],
     );
-    
+
     // Create new assignment
     await db.insert('coach_client_history', {
       'clientId': clientId,
@@ -461,9 +504,12 @@ class DatabaseService {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getCoachAssignmentHistory(int clientId) async {
+  Future<List<Map<String, dynamic>>> getCoachAssignmentHistory(
+    int clientId,
+  ) async {
     final db = await database;
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT 
         cch.*,
         u.firstName || ' ' || u.name as coachName,
@@ -472,7 +518,9 @@ class DatabaseService {
       INNER JOIN users u ON cch.coachId = u.id
       WHERE cch.clientId = ?
       ORDER BY cch.assignedAt DESC
-    ''', [clientId]);
+    ''',
+      [clientId],
+    );
   }
 
   Future close() async {

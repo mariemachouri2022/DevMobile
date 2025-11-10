@@ -8,6 +8,7 @@ class UserModel {
   final String password;
   final UserRole role;
   final int? coachId; // For clients, ID of their assigned coach
+  final String? profileImagePath; // Path to profile image
   final DateTime? lastModified;
   final DateTime? createdAt;
   final bool isActive;
@@ -22,6 +23,7 @@ class UserModel {
     required this.password,
     required this.role,
     this.coachId,
+    this.profileImagePath,
     this.lastModified,
     this.createdAt,
     this.isActive = true,
@@ -39,6 +41,7 @@ class UserModel {
       'password': password,
       'role': role.toString().split('.').last,
       'coachId': coachId,
+      'profileImagePath': profileImagePath,
       'lastModified': (lastModified ?? DateTime.now()).toIso8601String(),
       'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
       'isActive': isActive ? 1 : 0,
@@ -59,7 +62,8 @@ class UserModel {
         (e) => e.toString().split('.').last == map['role'],
       ),
       coachId: map['coachId'] as int?,
-      lastModified: map['lastModified'] != null 
+      profileImagePath: map['profileImagePath'] as String?,
+      lastModified: map['lastModified'] != null
           ? DateTime.parse(map['lastModified'] as String)
           : null,
       createdAt: map['createdAt'] != null
@@ -80,6 +84,7 @@ class UserModel {
     String? password,
     UserRole? role,
     int? coachId,
+    String? profileImagePath,
     DateTime? lastModified,
     DateTime? createdAt,
     bool? isActive,
@@ -94,6 +99,7 @@ class UserModel {
       password: password ?? this.password,
       role: role ?? this.role,
       coachId: coachId ?? this.coachId,
+      profileImagePath: profileImagePath ?? this.profileImagePath,
       lastModified: lastModified ?? this.lastModified,
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
@@ -103,11 +109,7 @@ class UserModel {
   String get fullName => '$firstName $name';
 }
 
-enum UserRole {
-  admin,
-  coach,
-  client,
-}
+enum UserRole { admin, coach, client }
 
 extension UserRoleExtension on UserRole {
   String get displayName {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/captcha_widget.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,6 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   UserRole _selectedRole = UserRole.client;
+  bool _captchaVerified = false;
 
   @override
   void dispose() {
@@ -38,6 +40,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
+      if (!_captchaVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please verify the CAPTCHA'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+        return;
+      }
+
       final user = UserModel(
         name: _nameController.text.trim(),
         firstName: _firstNameController.text.trim(),
@@ -75,9 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Register New Account'),
-      ),
+      appBar: AppBar(title: const Text('Register New Account')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -269,7 +279,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // CAPTCHA
+                CaptchaWidget(
+                  onVerified: (isVerified) {
+                    setState(() {
+                      _captchaVerified = isVerified;
+                    });
+                  },
+                  onRefresh: () {
+                    setState(() {
+                      _captchaVerified = false;
+                    });
+                  },
+                ),
+                const SizedBox(height: 24),
 
                 // Register Button
                 Consumer<AuthProvider>(
@@ -277,8 +302,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return SizedBox(
                       height: 56,
                       child: ElevatedButton(
-                        onPressed:
-                            authProvider.isLoading ? null : _handleRegister,
+                        onPressed: authProvider.isLoading
+                            ? null
+                            : _handleRegister,
                         child: authProvider.isLoading
                             ? const SizedBox(
                                 width: 24,

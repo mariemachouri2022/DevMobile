@@ -57,7 +57,7 @@ class AuthProvider with ChangeNotifier {
       }
 
       _currentUser = user;
-      
+
       // Save login state
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('userId', user.id!);
@@ -81,8 +81,10 @@ class AuthProvider with ChangeNotifier {
 
     try {
       // Check if email already exists
-      final existingUser = await DatabaseService.instance.getUserByEmail(user.email);
-      
+      final existingUser = await DatabaseService.instance.getUserByEmail(
+        user.email,
+      );
+
       if (existingUser != null) {
         _errorMessage = 'Email already exists';
         _isLoading = false;
@@ -114,6 +116,48 @@ class AuthProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
     notifyListeners();
+  }
+
+  // Check if email exists
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final user = await DatabaseService.instance.getUserByEmail(email);
+      return user != null;
+    } catch (e) {
+      _errorMessage = 'Error checking email: $e';
+      return false;
+    }
+  }
+
+  // Reset password
+  Future<bool> resetPassword(String email, String newPassword) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final user = await DatabaseService.instance.getUserByEmail(email);
+
+      if (user == null) {
+        _errorMessage = 'User not found';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Update user with new password
+      final updatedUser = user.copyWith(password: newPassword);
+      await DatabaseService.instance.updateUser(updatedUser);
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Error resetting password: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   // Clear error

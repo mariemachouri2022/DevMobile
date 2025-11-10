@@ -49,6 +49,9 @@ dependencies:
   # Utilities
   shared_preferences: ^2.2.3
   intl: any
+  
+  # Image Picker
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_test:

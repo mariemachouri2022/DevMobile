@@ -1,13 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import 'user_form_screen.dart';
 import 'assign_coach_screen.dart';
 
-class UserProfileScreen extends StatelessWidget {
+class UserProfileScreen extends StatefulWidget {
   final UserModel user;
   final bool isCurrentUser;
 
@@ -18,6 +20,32 @@ class UserProfileScreen extends StatelessWidget {
   });
 
   @override
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen> {
+  late UserModel _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUser = widget.user;
+  }
+
+  Future<void> _refreshUser() async {
+    if (_currentUser.id != null) {
+      final updatedUser = await DatabaseService.instance.getUserById(
+        _currentUser.id!,
+      );
+      if (updatedUser != null && mounted) {
+        setState(() {
+          _currentUser = updatedUser;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.currentUser?.role == UserRole.admin;
@@ -25,17 +53,21 @@ class UserProfileScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isCurrentUser ? 'My Profile' : user.fullName),
+        title: Text(
+          widget.isCurrentUser ? 'My Profile' : _currentUser.fullName,
+        ),
         actions: [
-          if (isAdmin || isCurrentUser)
+          if (isAdmin || widget.isCurrentUser)
             IconButton(
               icon: const Icon(Icons.edit),
-              onPressed: () {
-                Navigator.of(context).push(
+              onPressed: () async {
+                await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => UserFormScreen(user: user),
+                    builder: (_) => UserFormScreen(user: _currentUser),
                   ),
                 );
+                // Refresh user data after returning from edit screen
+                await _refreshUser();
               },
               tooltip: 'Edit Profile',
             ),
@@ -54,22 +86,31 @@ class UserProfileScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.white,
-                    child: Text(
-                      user.firstName[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
+                    backgroundImage: _currentUser.profileImagePath != null
+                        ? (File(_currentUser.profileImagePath!).existsSync()
+                              ? FileImage(File(_currentUser.profileImagePath!))
+                              : null)
+                        : null,
+                    child:
+                        _currentUser.profileImagePath == null ||
+                            !File(_currentUser.profileImagePath!).existsSync()
+                        ? Text(
+                            _currentUser.firstName[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    user.fullName,
+                    _currentUser.fullName,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -82,7 +123,7 @@ class UserProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      user.role.displayName,
+                      _currentUser.role.displayName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -107,21 +148,21 @@ class UserProfileScreen extends StatelessWidget {
                         context,
                         icon: Icons.person_outline,
                         label: 'Name',
-                        value: user.name,
+                        value: _currentUser.name,
                       ),
                       const Divider(),
                       _buildInfoRow(
                         context,
                         icon: Icons.person_outline,
                         label: 'First Name',
-                        value: user.firstName,
+                        value: _currentUser.firstName,
                       ),
                       const Divider(),
                       _buildInfoRow(
                         context,
                         icon: Icons.cake_outlined,
                         label: 'Age',
-                        value: '${user.age} years',
+                        value: '${_currentUser.age} years',
                       ),
                     ],
                   ),
@@ -134,26 +175,27 @@ class UserProfileScreen extends StatelessWidget {
                         context,
                         icon: Icons.email_outlined,
                         label: 'Email',
-                        value: user.email,
+                        value: _currentUser.email,
                       ),
                       const Divider(),
                       _buildInfoRow(
                         context,
                         icon: Icons.phone_outlined,
                         label: 'Phone',
-                        value: user.phone,
+                        value: _currentUser.phone,
                       ),
                     ],
                   ),
-                  
+
                   // Coach Assignment for clients
-                  if (user.role == UserRole.client) ...[
+                  if (_currentUser.role == UserRole.client) ...[
                     const SizedBox(height: 16),
                     _buildCoachAssignmentCard(context, isAdmin, isCoach),
                   ],
 
                   // Client List for coaches
-                  if (user.role == UserRole.coach && (isAdmin || isCurrentUser)) ...[
+                  if (_currentUser.role == UserRole.coach &&
+                      (isAdmin || widget.isCurrentUser)) ...[
                     const SizedBox(height: 16),
                     _buildClientListCard(context),
                   ],
@@ -179,9 +221,9 @@ class UserProfileScreen extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ...children,
@@ -207,16 +249,13 @@ class UserProfileScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text(label, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -226,7 +265,11 @@ class UserProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCoachAssignmentCard(BuildContext context, bool isAdmin, bool isCoach) {
+  Widget _buildCoachAssignmentCard(
+    BuildContext context,
+    bool isAdmin,
+    bool isCoach,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -238,16 +281,17 @@ class UserProfileScreen extends StatelessWidget {
               children: [
                 Text(
                   'Assigned Coach',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 if (isAdmin)
                   TextButton.icon(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => AssignCoachScreen(client: user),
+                          builder: (_) =>
+                              AssignCoachScreen(client: _currentUser),
                         ),
                       );
                     },
@@ -257,12 +301,23 @@ class UserProfileScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            if (user.coachId != null)
+            if (_currentUser.coachId != null)
               FutureBuilder<UserModel?>(
-                future: _getCoach(context, user.coachId!),
+                future: _getCoachFromDatabase(context, _currentUser.coachId!),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const CircularProgressIndicator();
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Text(
+                      'Error loading coach: ${snapshot.error}',
+                      style: const TextStyle(color: AppTheme.errorColor),
+                    );
                   }
                   if (snapshot.hasData && snapshot.data != null) {
                     final coach = snapshot.data!;
@@ -299,13 +354,13 @@ class UserProfileScreen extends StatelessWidget {
           children: [
             Text(
               'Clients',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             FutureBuilder<List<UserModel>>(
-              future: _getClients(context, user.id!),
+              future: _getClients(context, _currentUser.id!),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -341,13 +396,17 @@ class UserProfileScreen extends StatelessWidget {
     );
   }
 
-  Future<UserModel?> _getCoach(BuildContext context, int coachId) async {
-    return await Provider.of<UserProvider>(context, listen: false)
-        .loadUsers()
-        .then((_) {
-      final users = Provider.of<UserProvider>(context, listen: false).users;
-      return users.firstWhere((u) => u.id == coachId);
-    });
+  Future<UserModel?> _getCoachFromDatabase(
+    BuildContext context,
+    int coachId,
+  ) async {
+    try {
+      // Query the database directly to avoid provider filter issues
+      return await DatabaseService.instance.getUserById(coachId);
+    } catch (e) {
+      // If any error occurs, return null
+      return null;
+    }
   }
 
   Future<List<UserModel>> _getClients(BuildContext context, int coachId) async {
