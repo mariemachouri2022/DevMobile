@@ -195,7 +195,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => const PerformanceScreen()),
+                                builder: (_) => const StatisticsScreen()),
                           );
                         },
                       ),
