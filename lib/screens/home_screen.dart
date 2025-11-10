@@ -12,6 +12,7 @@ import 'statistics_screen.dart';
 import 'backup_restore_screen.dart';
 import 'coach_assignment_manager_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'nutrition_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -341,11 +342,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ] else ...[
                     _buildActionCard(
                       context,
+                      icon: Icons.local_dining_outlined,
+                      title: 'Nutrition',
+                      subtitle: 'Suivez votre alimentation quotidienne',
+                      color: AppTheme.accentColor,
+                      delay: 100,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NutritionScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
                       icon: Icons.person,
                       title: 'My Profile',
                       subtitle: 'View your profile and performance',
                       color: AppTheme.primaryColor,
-                      delay: 100,
+                      delay: 200,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

@@ -1,6 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/user_model.dart';
+import '../models/meal_model.dart';
+import 'nutrition_database_service.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -20,7 +22,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4, // Incremented to force re-migration
+      version: 6, // Incremented to include nutrition tables and cache
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -93,6 +95,15 @@ class DatabaseService {
         'ALTER TABLE users ADD COLUMN profileImagePath TEXT DEFAULT NULL',
       );
     }
+
+    if (oldVersion < 5) {
+      await _createMealsTable(db);
+    }
+
+    if (oldVersion < 6) {
+      // Migrate nutrition tables with cache
+      await NutritionDatabaseService.migrateNutritionTables(db, oldVersion);
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -164,6 +175,9 @@ class DatabaseService {
       'lastModified': DateTime.now().toIso8601String(),
       'isActive': 1,
     });
+
+    // Initialize nutrition tables
+    await NutritionDatabaseService.initializeTables(db);
   }
 
   // CRUD Operations for Users
@@ -521,6 +535,238 @@ class DatabaseService {
     ''',
       [clientId],
     );
+  }
+
+  Future<void> _createMealsTable(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const intType = 'INTEGER NOT NULL';
+    const textType = 'TEXT NOT NULL';
+    const textTypeNull = 'TEXT';
+    const realType = 'REAL NOT NULL DEFAULT 0';
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS meals (
+        id $idType,
+        userId $intType,
+        day $textType,
+        mealType $textType,
+        name $textType,
+        calories $realType,
+        proteins $realType,
+        carbs $realType,
+        fats $realType,
+        isFavorite INTEGER NOT NULL DEFAULT 0,
+        isTemplate INTEGER NOT NULL DEFAULT 0,
+        note $textTypeNull,
+        createdAt $textTypeNull,
+        updatedAt $textTypeNull,
+        FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_meals_user_day ON meals(userId, day)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_meals_favorite ON meals(userId, isFavorite)',
+    );
+  }
+
+  String _dateKey(DateTime value) {
+    final normalized = DateTime(value.year, value.month, value.day);
+    return normalized.toIso8601String().substring(0, 10);
+  }
+
+  Future<List<Meal>> getMealsByDay(int userId, String day) async {
+    final db = await database;
+    final maps = await db.query(
+      'meals',
+      where: 'userId = ? AND day = ?',
+      whereArgs: [userId, day],
+      orderBy: 'mealType ASC, createdAt ASC',
+    );
+    return maps.map(Meal.fromMap).toList();
+  }
+
+  Future<List<Meal>> getFavoriteMeals(int userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'meals',
+      where: 'userId = ? AND isFavorite = 1',
+      whereArgs: [userId],
+      orderBy: 'day DESC, createdAt DESC',
+    );
+    return maps.map(Meal.fromMap).toList();
+  }
+
+  Future<int> addMeal(Meal meal) async {
+    final db = await database;
+    return await db.insert('meals', meal.toMap());
+  }
+
+  Future<int> updateMeal(Meal meal) async {
+    if (meal.id == null) {
+      throw ArgumentError('Meal ID is required for update');
+    }
+    final db = await database;
+    return await db.update(
+      'meals',
+      meal.toMap(),
+      where: 'id = ?',
+      whereArgs: [meal.id],
+    );
+  }
+
+  Future<int> deleteMeal(int mealId) async {
+    final db = await database;
+    return await db.delete(
+      'meals',
+      where: 'id = ?',
+      whereArgs: [mealId],
+    );
+  }
+
+  Future<void> refreshDayCache({
+    required int userId,
+    required String day,
+    required String weekStart,
+  }) async {
+    // No persisted cache yet; method kept for API compatibility.
+  }
+
+  Future<List<Map<String, dynamic>>> getCalories7d(
+    int userId,
+    String endDay,
+  ) async {
+    final db = await database;
+    final endDate = DateTime.parse(endDay);
+    final startDate = endDate.subtract(const Duration(days: 6));
+    final start = _dateKey(startDate);
+    final end = _dateKey(endDate);
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT day, SUM(calories) AS totalCalories
+      FROM meals
+      WHERE userId = ? AND day BETWEEN ? AND ?
+      GROUP BY day
+      ORDER BY day ASC
+    ''',
+      [userId, start, end],
+    );
+
+    final lookup = {
+      for (final row in rows)
+        row['day'] as String: (row['totalCalories'] as num?)?.toDouble() ?? 0.0,
+    };
+
+    final results = <Map<String, dynamic>>[];
+    for (var i = 0; i < 7; i++) {
+      final current = startDate.add(Duration(days: i));
+      final key = _dateKey(current);
+      results.add({
+        'day': key,
+        'totalCalories': lookup[key] ?? 0.0,
+      });
+    }
+    return results;
+  }
+
+  Future<List<Map<String, dynamic>>> getMacros7d(
+    int userId,
+    String endDay,
+  ) async {
+    final db = await database;
+    final endDate = DateTime.parse(endDay);
+    final startDate = endDate.subtract(const Duration(days: 6));
+    final start = _dateKey(startDate);
+    final end = _dateKey(endDate);
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT day,
+             SUM(proteins) AS totalProteins,
+             SUM(carbs)    AS totalCarbs,
+             SUM(fats)     AS totalFats
+      FROM meals
+      WHERE userId = ? AND day BETWEEN ? AND ?
+      GROUP BY day
+      ORDER BY day ASC
+    ''',
+      [userId, start, end],
+    );
+
+    final lookup = {
+      for (final row in rows)
+        row['day'] as String: {
+          'totalProteins': (row['totalProteins'] as num?)?.toDouble() ?? 0.0,
+          'totalCarbs': (row['totalCarbs'] as num?)?.toDouble() ?? 0.0,
+          'totalFats': (row['totalFats'] as num?)?.toDouble() ?? 0.0,
+        },
+    };
+
+    final results = <Map<String, dynamic>>[];
+    for (var i = 0; i < 7; i++) {
+      final current = startDate.add(Duration(days: i));
+      final key = _dateKey(current);
+      final data = lookup[key];
+      results.add({
+        'day': key,
+        'totalProteins': data?['totalProteins'] ?? 0.0,
+        'totalCarbs': data?['totalCarbs'] ?? 0.0,
+        'totalFats': data?['totalFats'] ?? 0.0,
+      });
+    }
+    return results;
+  }
+
+  Future<Map<String, num>> getWeeklyAverages(
+    int userId,
+    String weekStart,
+  ) async {
+    final db = await database;
+    final startDate = DateTime.parse(weekStart);
+    final endDate = startDate.add(const Duration(days: 6));
+    final start = _dateKey(startDate);
+    final end = _dateKey(endDate);
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT
+        AVG(totalCalories) AS avgCalories,
+        AVG(totalProteins) AS avgProteins,
+        AVG(totalCarbs)    AS avgCarbs,
+        AVG(totalFats)     AS avgFats
+      FROM (
+        SELECT day,
+               SUM(calories) AS totalCalories,
+               SUM(proteins) AS totalProteins,
+               SUM(carbs)    AS totalCarbs,
+               SUM(fats)     AS totalFats
+        FROM meals
+        WHERE userId = ? AND day BETWEEN ? AND ?
+        GROUP BY day
+      )
+    ''',
+      [userId, start, end],
+    );
+
+    if (rows.isEmpty || rows.first.values.every((value) => value == null)) {
+      return const {
+        'avgCalories': 0,
+        'avgProteins': 0,
+        'avgCarbs': 0,
+        'avgFats': 0,
+      };
+    }
+
+    final row = rows.first;
+    return {
+      'avgCalories': (row['avgCalories'] as num?)?.toDouble() ?? 0.0,
+      'avgProteins': (row['avgProteins'] as num?)?.toDouble() ?? 0.0,
+      'avgCarbs': (row['avgCarbs'] as num?)?.toDouble() ?? 0.0,
+      'avgFats': (row['avgFats'] as num?)?.toDouble() ?? 0.0,
+    };
   }
 
   Future close() async {
