@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/liste_seances_page.dart';
 import '../theme/app_theme.dart';
 import 'user_list_screen.dart';
 import 'user_profile_screen.dart';
@@ -21,28 +22,13 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 6, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Déconnexion'),
-        content: const Text('Voulez-vous vraiment vous déconnecter?'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -81,6 +67,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           appBar: AppBar(
             title: const Text('SmartFit Admin'),
             actions: [
+              // Profil utilisateur
               IconButton(
                 icon: const Icon(Icons.person),
                 onPressed: () {
@@ -94,153 +81,334 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   );
                 },
               ),
+
+              // Menu 3 points → affiche le bottom sheet
+              IconButton(
+                icon: const Icon(Icons.more_vert),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => _buildOptionsBottomSheet(context),
+                  );
+                },
+              ),
+
+              // Déconnexion
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: _handleLogout,
               ),
             ],
-            bottom: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white.withOpacity(0.7),
-              labelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              tabs: const [
-                Tab(icon: Icon(Icons.calendar_today), text: 'Planning'),
-                Tab(icon: Icon(Icons.fitness_center), text: 'Matériels'),
-                Tab(icon: Icon(Icons.trending_up), text: 'Performance'),
-                Tab(icon: Icon(Icons.shopping_bag), text: 'Store'),
-                Tab(icon: Icon(Icons.card_membership), text: 'Abonnements'),
-                Tab(icon: Icon(Icons.more_horiz), text: 'Plus'),
-              ],
-            ),
           ),
-          body: TabBarView(
-            controller: _tabController,
-            children: const [
-              PlanningScreen(),
-              EquipmentScreen(),
-              PerformanceScreen(),
-              StoreScreen(),
-              SubscriptionsScreen(),
-              AdminMoreScreen(),
-            ],
+
+          // Corps principal
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tableau de Bord Admin',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Gestion complète de votre salle de sport',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Section Gestion Principale
+                  Text(
+                    'Gestion Principale',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.15,
+                    children: [
+                      _buildManagementCard(
+                        context,
+                        icon: Icons.calendar_today,
+                        title: 'Planning Gestion',
+                        color: AppTheme.primaryColor,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const ListeSeancesPage()),
+                          );
+                        },
+                      ),
+                      _buildManagementCard(
+                        context,
+                        icon: Icons.fitness_center,
+                        title: 'Gestion Matériel',
+                        color: Colors.blue,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const EquipmentScreen()),
+                          );
+                        },
+                      ),
+                      _buildManagementCard(
+                        context,
+                        icon: Icons.card_membership,
+                        title: 'Gestion Abonnement',
+                        color: Colors.green,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const SubscriptionsScreen()),
+                          );
+                        },
+                      ),
+                      _buildManagementCard(
+                        context,
+                        icon: Icons.shopping_bag,
+                        title: 'Gestion Produit',
+                        color: Colors.orange,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const StoreScreen()),
+                          );
+                        },
+                      ),
+                      _buildManagementCard(
+                        context,
+                        icon: Icons.bar_chart_rounded,
+                        title: 'Performance & Statistiques',
+                        color: Colors.purple,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const PerformanceScreen()),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
           ),
         );
       },
     );
   }
-}
 
-// More tab with additional admin features
-class AdminMoreScreen extends StatelessWidget {
-  const AdminMoreScreen({super.key});
+  // 🔹 BottomSheet design moderne (inspiré de ton image)
+  Widget _buildOptionsBottomSheet(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9F9FB),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 50,
+                height: 5,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const Text(
+              "Plus d'Options",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "Gestion avancée et outils",
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 24),
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Plus d\'Options',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Gestion avancée et outils',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 24),
-          _buildOptionCard(
-            context,
-            icon: Icons.people,
-            title: 'Gestion des Utilisateurs',
-            subtitle: 'Admins, coaches et clients',
-            color: AppTheme.primaryColor,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const UserListScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildOptionCard(
-            context,
-            icon: Icons.link,
-            title: 'Assignation Coaches',
-            subtitle: 'Gérer les relations coach-client',
-            color: Colors.purple,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const CoachAssignmentManagerScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildOptionCard(
-            context,
-            icon: Icons.bar_chart,
-            title: 'Statistiques Détaillées',
-            subtitle: 'Analytics et insights',
-            color: AppTheme.accentColor,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const StatisticsScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildOptionCard(
-            context,
-            icon: Icons.backup,
-            title: 'Backup & Restore',
-            subtitle: 'Sauvegarde des données',
-            color: AppTheme.successColor,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BackupRestoreScreen()),
-              );
-            },
-          ),
-        ],
+            _buildOptionCard(
+              context,
+              icon: Icons.group,
+              iconColor: Colors.deepPurple,
+              title: "Gestion des Utilisateurs",
+              subtitle: "Admins, coaches et clients",
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const UserListScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+
+            _buildOptionCard(
+              context,
+              icon: Icons.link,
+              iconColor: Colors.pinkAccent,
+              title: "Assignation Coaches",
+              subtitle: "Gérer les relations coach-client",
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CoachAssignmentManagerScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+
+            _buildOptionCard(
+              context,
+              icon: Icons.backup,
+              iconColor: Colors.orangeAccent,
+              title: "Sauvegarde / Restauration",
+              subtitle: "Sauvegarder ou restaurer les données",
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const BackupRestoreScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
 
+  // 🔹 Carte moderne pour chaque option
   Widget _buildOptionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required Color iconColor,
+        required String title,
+        required String subtitle,
+        required VoidCallback onTap,
+      }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 26),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🔹 Carte générique pour le tableau principal
+  Widget _buildManagementCard(
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required Color color,
+        required VoidCallback onTap,
+      }) {
     return Card(
-      child: ListTile(
+      elevation: 4,
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+          constraints: const BoxConstraints(minHeight: 110),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 22, color: color),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          child: Icon(icon, color: color, size: 28),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       ),
     );
   }
