@@ -376,16 +376,15 @@ class _NutritionScreenState extends State<NutritionScreen>
   }
 
   void _editMeal(Meal meal) {
-    // For brevity: reuse the add dialog prefilled
+    // Reuse the add dialog with existing meal data
     showDialog(
       context: context,
       builder: (_) => AddMealDialog(
         userId: meal.userId,
         date: DateTime.parse(meal.day),
+        existingMeal: meal, // Pass the existing meal to pre-fill the form
         onSubmit: (updated) async {
-          await context.read<NutritionProvider>().updateMeal(
-            updated.copyWith(id: meal.id),
-          );
+          await context.read<NutritionProvider>().updateMeal(updated);
         },
       ),
     );
