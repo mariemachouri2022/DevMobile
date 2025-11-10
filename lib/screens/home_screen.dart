@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_card.dart';
+import 'client_calendar_screen.dart';
+import 'coach_calendar_screen.dart';
 import 'user_list_screen.dart';
 import 'user_profile_screen.dart';
 import 'login_screen.dart';
@@ -12,6 +14,7 @@ import 'statistics_screen.dart';
 import 'backup_restore_screen.dart';
 import 'coach_assignment_manager_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'planning_screen.dart'; // Assurez-vous d'importer PlanningScreen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -45,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     if (authProvider.currentUser?.role == UserRole.coach) {
       await userProvider.loadClientsByCoach(authProvider.currentUser!.id!);
     } else {
@@ -78,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (confirmed == true && mounted) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.logout();
-      
+
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -92,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final currentUser = authProvider.currentUser;
-        
+
         if (currentUser == null) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -322,6 +325,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 12),
                     _buildActionCard(
                       context,
+                      icon: Icons.calendar_today,
+                      title: 'Planning',
+                      subtitle: 'Manage your schedule and sessions',
+                      color: Colors.blue,
+                      delay: 150,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CoachCalendarScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
                       icon: Icons.person,
                       title: 'My Profile',
                       subtitle: 'View and edit your profile',
@@ -339,13 +358,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                   ] else ...[
+                    // Client actions
+                    _buildActionCard(
+                      context,
+                      icon: Icons.calendar_today,
+                      title: 'Planning',
+                      subtitle: 'View your schedule and sessions',
+                      color: AppTheme.primaryColor,
+                      delay: 100,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ClientCalendarScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     _buildActionCard(
                       context,
                       icon: Icons.person,
                       title: 'My Profile',
                       subtitle: 'View your profile and performance',
-                      color: AppTheme.primaryColor,
-                      delay: 100,
+                      color: AppTheme.accentColor,
+                      delay: 200,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -368,14 +404,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-    int delay = 0,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required String subtitle,
+        required Color color,
+        required VoidCallback onTap,
+        int delay = 0,
+      }) {
     return AnimatedCard(
       delay: delay,
       onTap: onTap,
@@ -405,8 +441,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
