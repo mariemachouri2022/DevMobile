@@ -13,6 +13,7 @@ import 'backup_restore_screen.dart';
 import 'coach_assignment_manager_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'nutrition_screen.dart';
+import 'nutrition_plan_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -323,10 +324,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 12),
                     _buildActionCard(
                       context,
+                      icon: Icons.restaurant_menu,
+                      title: 'Plans Nutritionnels',
+                      subtitle: 'Créer et assigner des plans nutritionnels',
+                      color: AppTheme.accentColor,
+                      delay: 150,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NutritionPlanScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
                       icon: Icons.person,
                       title: 'My Profile',
                       subtitle: 'View and edit your profile',
-                      color: AppTheme.accentColor,
+                      color: AppTheme.warningColor,
                       delay: 200,
                       onTap: () {
                         Navigator.of(context).push(
@@ -358,10 +375,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 12),
                     _buildActionCard(
                       context,
+                      icon: Icons.restaurant_menu,
+                      title: 'Mes Plans Nutritionnels',
+                      subtitle: 'Voir les plans assignés par votre coach',
+                      color: AppTheme.primaryColor,
+                      delay: 150,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NutritionPlanScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
                       icon: Icons.person,
                       title: 'My Profile',
                       subtitle: 'View your profile and performance',
-                      color: AppTheme.primaryColor,
+                      color: AppTheme.warningColor,
                       delay: 200,
                       onTap: () {
                         Navigator.of(context).push(

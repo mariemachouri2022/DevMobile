@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/nutrition_provider.dart';
+import 'providers/nutrition_plan_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => NutritionProvider()),
+        ChangeNotifierProvider(create: (_) => NutritionPlanProvider()),
       ],
       child: MaterialApp(
         title: 'SmartFit',

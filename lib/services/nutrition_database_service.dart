@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/meal_model.dart';
 import '../models/plan_stats_cache.dart';
+import '../models/nutrition_plan_model.dart';
 import 'database_service.dart';
 
 class NutritionDatabaseService {
@@ -74,6 +75,68 @@ class NutritionDatabaseService {
         'CREATE INDEX IF NOT EXISTS idx_psc_user_day ON plan_stats_cache(userId, day)');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_psc_user_week ON plan_stats_cache(userId, weekStart)');
+  }
+
+  // Initialize nutrition plans tables
+  static Future<void> initializeNutritionPlansTables(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const intType = 'INTEGER NOT NULL';
+    const textType = 'TEXT NOT NULL';
+    const textTypeNull = 'TEXT';
+    const realType = 'REAL NOT NULL DEFAULT 0';
+
+    // Create nutrition_plans table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS nutrition_plans (
+        id $idType,
+        coachId $intType,
+        clientId INTEGER,
+        name $textType,
+        description $textTypeNull,
+        startDate $textType,
+        endDate $textTypeNull,
+        isTemplate INTEGER NOT NULL DEFAULT 0,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        createdAt $textTypeNull DEFAULT CURRENT_TIMESTAMP,
+        updatedAt $textTypeNull DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (coachId) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (clientId) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Create plan_meals table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS plan_meals (
+        id $idType,
+        planId $intType,
+        dayOfWeek $textType,
+        mealType $textType,
+        name $textType,
+        calories $realType,
+        proteins $realType,
+        carbs $realType,
+        fats $realType,
+        note $textTypeNull,
+        orderIndex INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (planId) REFERENCES nutrition_plans (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Create indexes
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_nutrition_plans_coach ON nutrition_plans(coachId)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_nutrition_plans_client ON nutrition_plans(clientId)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_plan_meals_plan ON plan_meals(planId)');
+  }
+
+  // Migration for nutrition plans tables
+  static Future<void> migrateNutritionPlansTables(
+      Database db, int oldVersion) async {
+    if (oldVersion < 7) {
+      await initializeNutritionPlansTables(db);
+    }
   }
 
   // Migration for nutrition tables
@@ -333,6 +396,172 @@ class NutritionDatabaseService {
   String _dateKey(DateTime value) {
     final normalized = DateTime(value.year, value.month, value.day);
     return normalized.toIso8601String().substring(0, 10);
+  }
+
+  // ---------- Nutrition Plans ----------
+
+  Future<int> createNutritionPlan(NutritionPlan plan) async {
+    final db = await database;
+    return await db.insert('nutrition_plans', plan.toMap());
+  }
+
+  Future<int> updateNutritionPlan(NutritionPlan plan) async {
+    final db = await database;
+    return await db.update(
+      'nutrition_plans',
+      plan.copyWith(updatedAt: DateTime.now()).toMap(),
+      where: 'id = ?',
+      whereArgs: [plan.id],
+    );
+  }
+
+  Future<int> deleteNutritionPlan(int planId) async {
+    final db = await database;
+    // Delete plan meals first (cascade should handle this, but explicit is better)
+    await db.delete('plan_meals', where: 'planId = ?', whereArgs: [planId]);
+    return await db.delete('nutrition_plans', where: 'id = ?', whereArgs: [planId]);
+  }
+
+  Future<NutritionPlan?> getNutritionPlanById(int planId) async {
+    final db = await database;
+    final rows = await db.query(
+      'nutrition_plans',
+      where: 'id = ?',
+      whereArgs: [planId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return NutritionPlan.fromMap(rows.first);
+  }
+
+  Future<List<NutritionPlan>> getNutritionPlansByCoach(int coachId) async {
+    final db = await database;
+    final rows = await db.query(
+      'nutrition_plans',
+      where: 'coachId = ?',
+      whereArgs: [coachId],
+      orderBy: 'createdAt DESC',
+    );
+    return rows.map((e) => NutritionPlan.fromMap(e)).toList();
+  }
+
+  Future<List<NutritionPlan>> getNutritionPlansByClient(int clientId) async {
+    final db = await database;
+    final rows = await db.query(
+      'nutrition_plans',
+      where: 'clientId = ? AND isActive = 1',
+      whereArgs: [clientId],
+      orderBy: 'startDate DESC',
+    );
+    return rows.map((e) => NutritionPlan.fromMap(e)).toList();
+  }
+
+  Future<List<NutritionPlan>> getTemplatePlans(int coachId) async {
+    final db = await database;
+    final rows = await db.query(
+      'nutrition_plans',
+      where: 'coachId = ? AND isTemplate = 1',
+      whereArgs: [coachId],
+      orderBy: 'createdAt DESC',
+    );
+    return rows.map((e) => NutritionPlan.fromMap(e)).toList();
+  }
+
+  Future<int> assignPlanToClient(int planId, int clientId, DateTime startDate, DateTime? endDate) async {
+    final db = await database;
+    return await db.update(
+      'nutrition_plans',
+      {
+        'clientId': clientId,
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate?.toIso8601String(),
+        'isActive': 1,
+        'updatedAt': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [planId],
+    );
+  }
+
+  // Plan Meals CRUD
+
+  Future<int> addPlanMeal(PlanMeal meal) async {
+    final db = await database;
+    return await db.insert('plan_meals', meal.toMap());
+  }
+
+  Future<int> updatePlanMeal(PlanMeal meal) async {
+    final db = await database;
+    return await db.update(
+      'plan_meals',
+      meal.toMap(),
+      where: 'id = ?',
+      whereArgs: [meal.id],
+    );
+  }
+
+  Future<int> deletePlanMeal(int mealId) async {
+    final db = await database;
+    return await db.delete('plan_meals', where: 'id = ?', whereArgs: [mealId]);
+  }
+
+  Future<List<PlanMeal>> getPlanMeals(int planId) async {
+    final db = await database;
+    final rows = await db.query(
+      'plan_meals',
+      where: 'planId = ?',
+      whereArgs: [planId],
+      orderBy: 'dayOfWeek ASC, mealType ASC, orderIndex ASC',
+    );
+    return rows.map((e) => PlanMeal.fromMap(e)).toList();
+  }
+
+  Future<List<PlanMeal>> getPlanMealsByDay(int planId, String dayOfWeek) async {
+    final db = await database;
+    final rows = await db.query(
+      'plan_meals',
+      where: 'planId = ? AND (dayOfWeek = ? OR dayOfWeek = ?)',
+      whereArgs: [planId, dayOfWeek, 'daily'],
+      orderBy: 'mealType ASC, orderIndex ASC',
+    );
+    return rows.map((e) => PlanMeal.fromMap(e)).toList();
+  }
+
+  // Apply plan to client's meals (generate meals from plan)
+  Future<void> applyPlanToClient(int planId, int clientId, DateTime startDate, int days) async {
+    final db = await database;
+    final plan = await getNutritionPlanById(planId);
+    if (plan == null) return;
+
+    final allMeals = await getPlanMeals(planId);
+    final daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    for (int i = 0; i < days; i++) {
+      final currentDate = startDate.add(Duration(days: i));
+      final dayOfWeek = daysOfWeek[currentDate.weekday - 1];
+      final dayStr = _dateKey(currentDate);
+
+      // Get meals for this day
+      final dayMeals = allMeals.where((m) => 
+        m.dayOfWeek == dayOfWeek || m.dayOfWeek == 'daily'
+      ).toList();
+
+      // Create meals for this day
+      for (final planMeal in dayMeals) {
+        final meal = Meal(
+          userId: clientId,
+          day: dayStr,
+          mealType: planMeal.mealType,
+          name: planMeal.name,
+          calories: planMeal.calories,
+          proteins: planMeal.proteins,
+          carbs: planMeal.carbs,
+          fats: planMeal.fats,
+          note: planMeal.note,
+        );
+        await addMeal(meal);
+      }
+    }
   }
 }
 

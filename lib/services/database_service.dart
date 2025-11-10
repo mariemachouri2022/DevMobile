@@ -22,7 +22,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 6, // Incremented to include nutrition tables and cache
+      version: 7, // Incremented to include nutrition plans
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -91,8 +91,11 @@ class DatabaseService {
 
     if (oldVersion < 4) {
       // Add profileImagePath column
-      await db.execute(
-        'ALTER TABLE users ADD COLUMN profileImagePath TEXT DEFAULT NULL',
+      await _addColumnIfNotExists(
+        db,
+        'users',
+        'profileImagePath',
+        'TEXT DEFAULT NULL',
       );
     }
 
@@ -104,6 +107,27 @@ class DatabaseService {
       // Migrate nutrition tables with cache
       await NutritionDatabaseService.migrateNutritionTables(db, oldVersion);
     }
+
+    if (oldVersion < 7) {
+      // Add nutrition plans tables
+      await NutritionDatabaseService.migrateNutritionPlansTables(db, oldVersion);
+    }
+
+    // Safety check: Ensure critical columns exist regardless of version
+    // This handles cases where database was created with a higher version
+    // but columns are missing due to previous migration failures
+    await _ensureCriticalColumnsExist(db);
+  }
+
+  // Safety check to ensure critical columns exist
+  Future<void> _ensureCriticalColumnsExist(Database db) async {
+    // Ensure profileImagePath exists
+    await _addColumnIfNotExists(
+      db,
+      'users',
+      'profileImagePath',
+      'TEXT DEFAULT NULL',
+    );
   }
 
   Future _createDB(Database db, int version) async {
@@ -178,6 +202,9 @@ class DatabaseService {
 
     // Initialize nutrition tables
     await NutritionDatabaseService.initializeTables(db);
+    
+    // Initialize nutrition plans tables
+    await NutritionDatabaseService.initializeNutritionPlansTables(db);
   }
 
   // CRUD Operations for Users
@@ -570,6 +597,40 @@ class DatabaseService {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_meals_favorite ON meals(userId, isFavorite)',
     );
+  }
+
+  // Helper function to add a column if it doesn't exist
+  Future<void> _addColumnIfNotExists(
+    Database db,
+    String tableName,
+    String columnName,
+    String columnDefinition,
+  ) async {
+    try {
+      // Check if column exists by querying table info
+      final result = await db.rawQuery(
+        'PRAGMA table_info($tableName)',
+      );
+      final columnExists = result.any(
+        (row) => row['name'] == columnName,
+      );
+
+      if (!columnExists) {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN $columnName $columnDefinition',
+        );
+      }
+    } catch (e) {
+      // If there's an error, try to add the column anyway
+      // (it will fail gracefully if it already exists in some SQLite versions)
+      try {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN $columnName $columnDefinition',
+        );
+      } catch (_) {
+        // Column might already exist, ignore error
+      }
+    }
   }
 
   String _dateKey(DateTime value) {

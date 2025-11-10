@@ -33,6 +33,9 @@ class _UserListScreenState extends State<UserListScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
+    // Clear any existing filters
+    userProvider.clearFilters();
+    
     if (widget.coachView && authProvider.currentUser?.role == UserRole.coach) {
       await userProvider.loadClientsByCoach(authProvider.currentUser!.id!);
     } else {

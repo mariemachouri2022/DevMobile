@@ -3,53 +3,68 @@ import 'package:http/http.dart' as http;
 import '../config/nutritionix_config.dart';
 
 class NutritionixService {
-  static const String _baseUrl = 'https://trackapi.nutritionix.com/v2';
+  // Edamam Food Database API for searching foods
+  static const String _foodDatabaseUrl = 'https://api.edamam.com/api/food-database/v2/parser';
+  // Edamam Nutrition Analysis API for getting nutrition details
+  static const String _nutritionAnalysisUrl = 'https://api.edamam.com/api/nutrition-details';
 
   /// Check if API is configured
   static bool get isConfigured => NutritionixConfig.isConfigured;
 
-  /// Search for foods using Nutritionix API
+  /// Search for foods using Edamam Food Database API
   /// Returns a list of food items with their nutritional information
   static Future<List<FoodItem>> searchFoods(String query) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/search/instant').replace(queryParameters: {
-          'query': query,
-        }),
-        headers: {
-          'x-app-id': NutritionixConfig.appId,
-          'x-app-key': NutritionixConfig.appKey,
-        },
-      );
+      final uri = Uri.parse(_foodDatabaseUrl).replace(queryParameters: {
+        'app_id': NutritionixConfig.appId,
+        'app_key': NutritionixConfig.appKey,
+        'ingr': query,
+        'nutrition-type': 'cooking',
+      });
+
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List<dynamic> common = data['common'] ?? [];
-        final List<dynamic> branded = data['branded'] ?? [];
+        final List<dynamic> hints = data['hints'] ?? [];
+        final List<dynamic> parsed = data['parsed'] ?? [];
 
         final List<FoodItem> results = [];
 
-        // Process common foods
-        for (var item in common) {
-          results.add(FoodItem(
-            name: item['food_name'] ?? '',
-            id: item['tag_id']?.toString() ?? '',
-            isCommon: true,
-          ));
+        // Process parsed foods (exact matches)
+        for (var item in parsed) {
+          final food = item['food'];
+          if (food != null) {
+            final nutrients = food['nutrients'];
+            results.add(FoodItem(
+              name: food['label'] ?? '',
+              id: food['foodId'] ?? '',
+              brand: food['brand'],
+              isCommon: true,
+              calories: (nutrients?['ENERC_KCAL'] as num?)?.toDouble(),
+              proteins: (nutrients?['PROCNT'] as num?)?.toDouble(),
+              carbs: (nutrients?['CHOCDF'] as num?)?.toDouble(),
+              fats: (nutrients?['FAT'] as num?)?.toDouble(),
+            ));
+          }
         }
 
-        // Process branded foods
-        for (var item in branded) {
-          results.add(FoodItem(
-            name: item['food_name'] ?? '',
-            id: item['nix_item_id']?.toString() ?? '',
-            brand: item['brand_name'],
-            isCommon: false,
-            calories: (item['nf_calories'] as num?)?.toDouble(),
-            proteins: (item['nf_protein'] as num?)?.toDouble(),
-            carbs: (item['nf_total_carbohydrate'] as num?)?.toDouble(),
-            fats: (item['nf_total_fat'] as num?)?.toDouble(),
-          ));
+        // Process hints (suggestions)
+        for (var hint in hints) {
+          final food = hint['food'];
+          if (food != null) {
+            final nutrients = food['nutrients'];
+            results.add(FoodItem(
+              name: food['label'] ?? '',
+              id: food['foodId'] ?? '',
+              brand: food['brand'],
+              isCommon: true,
+              calories: (nutrients?['ENERC_KCAL'] as num?)?.toDouble(),
+              proteins: (nutrients?['PROCNT'] as num?)?.toDouble(),
+              carbs: (nutrients?['CHOCDF'] as num?)?.toDouble(),
+              fats: (nutrients?['FAT'] as num?)?.toDouble(),
+            ));
+          }
         }
 
         return results;
@@ -62,82 +77,57 @@ class NutritionixService {
   }
 
   /// Get detailed nutritional information for a specific food item
+  /// Note: Edamam uses food names, not IDs for nutrition analysis
   static Future<FoodNutrition> getFoodNutrition(String foodId, {bool isCommon = true}) async {
-    try {
-      final endpoint = isCommon
-          ? '$_baseUrl/natural/nutrients'
-          : '$_baseUrl/search/item?nix_item_id=$foodId';
-
-      if (isCommon) {
-        // For common foods, we need to use natural language processing
-        // This requires the food name, not just the ID
-        throw Exception('Use getFoodNutritionByName for common foods');
-      }
-
-      final response = await http.get(
-        Uri.parse(endpoint),
-        headers: {
-          'x-app-id': NutritionixConfig.appId,
-          'x-app-key': NutritionixConfig.appKey,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final foods = data['foods'] as List?;
-        if (foods != null && foods.isNotEmpty) {
-          final food = foods.first;
-          return FoodNutrition(
-            name: food['food_name'] ?? '',
-            calories: (food['nf_calories'] as num?)?.toDouble() ?? 0,
-            proteins: (food['nf_protein'] as num?)?.toDouble() ?? 0,
-            carbs: (food['nf_total_carbohydrate'] as num?)?.toDouble() ?? 0,
-            fats: (food['nf_total_fat'] as num?)?.toDouble() ?? 0,
-            servingWeight: (food['serving_weight_grams'] as num?)?.toDouble(),
-            servingUnit: food['serving_unit'],
-            servingQty: (food['serving_qty'] as num?)?.toDouble(),
-          );
-        }
-      }
-      throw Exception('Failed to get food nutrition: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error getting food nutrition: $e');
-    }
+    // Edamam doesn't support lookup by ID, use getFoodNutritionByName instead
+    throw Exception('Use getFoodNutritionByName for Edamam API');
   }
 
   /// Get nutritional information using natural language (for common foods)
+  /// Uses Edamam Nutrition Analysis API
   static Future<FoodNutrition> getFoodNutritionByName(String foodName) async {
     try {
+      final uri = Uri.parse(_nutritionAnalysisUrl).replace(queryParameters: {
+        'app_id': NutritionixConfig.appId,
+        'app_key': NutritionixConfig.appKey,
+      });
+
       final response = await http.post(
-        Uri.parse('$_baseUrl/natural/nutrients'),
+        uri,
         headers: {
           'Content-Type': 'application/json',
-          'x-app-id': NutritionixConfig.appId,
-          'x-app-key': NutritionixConfig.appKey,
         },
         body: jsonEncode({
-          'query': foodName,
+          'title': foodName,
+          'ingr': [foodName], // Single ingredient
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final foods = data['foods'] as List?;
-        if (foods != null && foods.isNotEmpty) {
-          final food = foods.first;
-          return FoodNutrition(
-            name: food['food_name'] ?? '',
-            calories: (food['nf_calories'] as num?)?.toDouble() ?? 0,
-            proteins: (food['nf_protein'] as num?)?.toDouble() ?? 0,
-            carbs: (food['nf_total_carbohydrate'] as num?)?.toDouble() ?? 0,
-            fats: (food['nf_total_fat'] as num?)?.toDouble() ?? 0,
-            servingWeight: (food['serving_weight_grams'] as num?)?.toDouble(),
-            servingUnit: food['serving_unit'],
-            servingQty: (food['serving_qty'] as num?)?.toDouble(),
-          );
-        }
+        final totalNutrients = data['totalNutrients'] ?? {};
+        final totalWeight = (data['totalWeight'] as num?)?.toDouble() ?? 100.0;
+
+        // Extract nutrients
+        final calories = (totalNutrients['ENERC_KCAL']?['quantity'] as num?)?.toDouble() ?? 0.0;
+        final proteins = (totalNutrients['PROCNT']?['quantity'] as num?)?.toDouble() ?? 0.0;
+        final carbs = (totalNutrients['CHOCDF']?['quantity'] as num?)?.toDouble() ?? 0.0;
+        final fats = (totalNutrients['FAT']?['quantity'] as num?)?.toDouble() ?? 0.0;
+
+        return FoodNutrition(
+          name: foodName,
+          calories: calories,
+          proteins: proteins,
+          carbs: carbs,
+          fats: fats,
+          servingWeight: totalWeight,
+          servingUnit: 'g',
+          servingQty: 1.0,
+        );
+      } else {
+        final errorBody = response.body;
+        throw Exception('Failed to get food nutrition: ${response.statusCode} - $errorBody');
       }
-      throw Exception('Failed to get food nutrition: ${response.statusCode}');
     } catch (e) {
       throw Exception('Error getting food nutrition: $e');
     }

@@ -115,45 +115,57 @@ class _CoachAssignmentManagerScreenState
                                   : AppTheme.warningColor,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              coach != null
-                                  ? 'Coach: ${coach.fullName}'
-                                  : 'No coach assigned',
-                              style: TextStyle(
-                                color: coach != null
-                                    ? AppTheme.successColor
-                                    : AppTheme.warningColor,
-                                fontWeight: FontWeight.w500,
+                            Flexible(
+                              child: Text(
+                                coach != null
+                                    ? 'Coach: ${coach.fullName}'
+                                    : 'No coach assigned',
+                                style: TextStyle(
+                                  color: coach != null
+                                      ? AppTheme.successColor
+                                      : AppTheme.warningColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                    trailing: ElevatedButton.icon(
-                      onPressed: () async {
-                        final result = await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => AssignCoachScreen(client: client),
-                          ),
-                        );
-                        if (result == true) {
-                          _loadData();
-                        }
-                      },
-                      icon: Icon(
-                        coach != null ? Icons.edit : Icons.add_link,
-                        size: 18,
+                    trailing: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: 100,
                       ),
-                      label: Text(coach != null ? 'Change' : 'Assign'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: coach != null
-                            ? AppTheme.accentColor
-                            : AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AssignCoachScreen(client: client),
+                            ),
+                          );
+                          if (result == true) {
+                            _loadData();
+                          }
+                        },
+                        icon: Icon(
+                          coach != null ? Icons.edit : Icons.add_link,
+                          size: 16,
+                        ),
+                        label: Text(
+                          coach != null ? 'Change' : 'Assign',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: coach != null
+                              ? AppTheme.accentColor
+                              : AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 36),
                         ),
                       ),
                     ),

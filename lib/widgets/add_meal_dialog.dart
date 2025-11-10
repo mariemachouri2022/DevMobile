@@ -120,7 +120,7 @@ class _AddMealDialogState extends State<AddMealDialog> {
                             ),
                             if (!NutritionixConfig.isConfigured)
                               Tooltip(
-                                message: 'API non configurée. Configurez vos clés API dans lib/config/nutritionix_config.dart',
+                                message: 'API non configurée. Configurez vos clés API Edamam dans lib/config/nutritionix_config.dart',
                                 child: const Icon(Icons.info_outline, size: 16, color: AppTheme.warningColor),
                               ),
                           ],
@@ -271,7 +271,7 @@ class _AddMealDialogState extends State<AddMealDialog> {
 
     if (!NutritionixConfig.isConfigured) {
       setState(() {
-        _searchError = 'API Nutritionix non configurée. Veuillez configurer vos clés API dans lib/config/nutritionix_config.dart';
+        _searchError = 'API Edamam non configurée. Veuillez configurer vos clés API dans lib/config/nutritionix_config.dart';
       });
       return;
     }
