@@ -15,7 +15,7 @@ class AdminDashboard extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        title: const Text('Admin Dashfboard'),
         actions: [
           IconButton(onPressed: () => auth.logout(), icon: const Icon(Icons.logout)),
         ],
