@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:smartfit/screens/products_catalog_screen.dart';
+import '../assistant_ia_page.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
@@ -374,6 +376,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     ),
+                    _buildActionCard(
+                      context,
+                      icon: Icons.calendar_today,
+                      title: 'Produits',
+                      subtitle: 'View your schedule and sessions',
+                      color: AppTheme.primaryColor,
+                      delay: 100,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>  ProductsCatalogScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    Builder(builder: (context) {
+                      print('[DEBUG] Building Assistant IA card...');
+                      return _buildActionCard(
+                        context,
+                        icon: Icons.smart_toy,
+                        title: 'Assistant IA',
+                        subtitle: 'Discutez avec votre coach intelligent',
+                        color: Colors.deepPurple,
+                        onTap: () {
+                          print('[DEBUG] Assistant IA card clicked');
+                          Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const AssistantIAPage(),
+                          ));
+                        },
+                      );
+                    }),
                     const SizedBox(height: 12),
                     _buildActionCard(
                       context,
