@@ -7,9 +7,12 @@ import 'providers/user_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
+import 'services/app_database.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize database on app start
+  await AppDatabase().database;
   runApp(const MyApp());
 }
 

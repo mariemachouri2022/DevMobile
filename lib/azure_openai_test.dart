@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const String apiKey = "your-azure-openai-api-key";
-const String endpoint = "https://your-azure-openai-endpoint";
+const String apiKey = "your_api_key"; // Remplacez par votre clé API Azure OpenAI
+const String endpoint = "your_azure_endpoint"; // Remplacez par votre endpoint Azure OpenAI
 const String deployment = "gpt-4o";
 const String apiVersion = "2024-12-01-preview";
 
