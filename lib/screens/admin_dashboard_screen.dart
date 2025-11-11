@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../dashboard_page.dart';
 import '../providers/auth_provider.dart';
 import '../providers/liste_seances_page.dart';
+import '../providers/products_list_screen.dart';
 import '../theme/app_theme.dart';
 import 'user_list_screen.dart';
 import 'user_profile_screen.dart';
@@ -159,7 +161,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => const EquipmentScreen()),
+                                builder: (_) => const DashboardIntelligentPage()),
                           );
                         },
                       ),
@@ -183,7 +185,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => const StoreScreen()),
+                                builder: (_) =>  ProductsListScreen()),
                           );
                         },
                       ),
@@ -195,7 +197,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => const StatisticsScreen()),
+                                builder: (_) => const PerformanceScreen()),
                           );
                         },
                       ),
