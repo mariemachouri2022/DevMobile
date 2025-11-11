@@ -450,12 +450,12 @@ class DatabaseService {
 
   // Profile history tracking
   Future<void> recordProfileChange(
-    int userId,
-    String field,
-    String? oldValue,
-    String? newValue,
-    int? modifiedBy,
-  ) async {
+      int userId,
+      String field,
+      String? oldValue,
+      String? newValue,
+      int? modifiedBy,
+      ) async {
     final db = await database;
     await db.insert('profile_history', {
       'userId': userId,

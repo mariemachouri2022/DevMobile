@@ -58,7 +58,19 @@ dependencies:
   
   # Image Picker
   image_picker: ^1.0.7
+  
+  # QR Code
+  qr_flutter: ^4.1.0
+  
+  # UUID
+  uuid: ^4.5.1
+  
+  # Mobile Scanner
+  mobile_scanner: ^5.2.3
+  
+  # Payment Processing
   flutter_stripe: ^12.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

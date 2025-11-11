@@ -15,9 +15,9 @@ class _AssistantIAPageState extends State<AssistantIAPage> {
   bool _isLoading = false;
 
   // ✅ Configuration Azure OpenAI
-  final String apiKey = "azure-openai-api-key"; // Remplacez par votre clé API Azure OpenAI
+  final String apiKey = "your_api_key"; // Remplacez par votre clé API Azure OpenAI
   final String endpoint =
-      "https://your-azure-openai-endpoint/openai/deployments/your-deployment-name/chat/completions?api-version=2023-03-15-preview"; // Remplacez par votre endpoint Azure OpenAI
+       "your_azure_key"; // Remplacez par votre endpoint Azure OpenAI
 
   Future<void> sendMessageToAI(String userMessage) async {
     setState(() {

@@ -16,7 +16,7 @@ import 'statistics_screen.dart';
 import 'backup_restore_screen.dart';
 import 'coach_assignment_manager_screen.dart';
 import 'admin_dashboard_screen.dart';
-import 'planning_screen.dart'; // Assurez-vous d'importer PlanningScreen
+import 'member_home.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,14 +37,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _checkAdminRedirect() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.currentUser?.role == UserRole.admin) {
-      // Redirect admin users to the new dashboard with tabs
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    final user = authProvider.currentUser;
+    if (user == null) return;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (user.role == UserRole.admin) {
+        // Redirect admin users to the new dashboard with tabs
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
         );
-      });
-    }
+      }
+      // Clients and coaches stay on HomeScreen
+    });
   }
 
   Future<void> _loadData() async {
@@ -361,6 +365,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ] else ...[
                     // Client actions
+                    _buildActionCard(
+                      context,
+                      icon: Icons.card_membership,
+                      title: 'My Subscription',
+                      subtitle: 'Manage your membership and subscription',
+                      color: Colors.green,
+                      delay: 50,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const MemberHome(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     _buildActionCard(
                       context,
                       icon: Icons.calendar_today,

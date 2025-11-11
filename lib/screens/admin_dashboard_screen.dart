@@ -15,7 +15,7 @@ import 'planning_screen.dart';
 import 'equipment_screen.dart';
 import 'performance_screen.dart';
 import 'store_screen.dart';
-import 'subscriptions_screen.dart';
+import 'admin_membership_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -173,7 +173,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => const SubscriptionsScreen()),
+                                builder: (_) => const AdminMembershipScreen()),
                           );
                         },
                       ),
